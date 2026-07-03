@@ -4,19 +4,19 @@ import { useState, useRef, useEffect } from 'react';
 
 const PIECE_SYMBOLS: Record<string, string> = {
   // White pieces
-  'wK': '♔',
-  'wQ': '♕',
-  'wR': '♖',
-  'wB': '♗',
-  'wN': '♘',
-  'wP': '♙',
+  wK: '♔',
+  wQ: '♕',
+  wR: '♖',
+  wB: '♗',
+  wN: '♘',
+  wP: '♙',
   // Black pieces
-  'bK': '♚',
-  'bQ': '♛',
-  'bR': '♜',
-  'bB': '♝',
-  'bN': '♞',
-  'bP': '♟',
+  bK: '♚',
+  bQ: '♛',
+  bR: '♜',
+  bB: '♝',
+  bN: '♞',
+  bP: '♟',
 };
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -121,9 +121,7 @@ export function CustomBoard({ fen, onBoardChange, orientation, suggestedMove }: 
     const y = e.clientY - rect.top - dragOffset.y;
 
     // Update all pieces
-    setPieces((prev) =>
-      prev.map((p) => (p.id === draggedPiece.id ? { ...p, x, y } : p))
-    );
+    setPieces((prev) => prev.map((p) => (p.id === draggedPiece.id ? { ...p, x, y } : p)));
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -165,9 +163,10 @@ export function CustomBoard({ fen, onBoardChange, orientation, suggestedMove }: 
         if (piece) {
           if (empty > 0) fen += empty;
           empty = 0;
-          fen += piece.type[1] === piece.type[1].toUpperCase()
-            ? piece.type[1]
-            : piece.type[1].toLowerCase();
+          fen +=
+            piece.type[1] === piece.type[1].toUpperCase()
+              ? piece.type[1]
+              : piece.type[1].toLowerCase();
         } else {
           empty++;
         }
@@ -192,7 +191,9 @@ export function CustomBoard({ fen, onBoardChange, orientation, suggestedMove }: 
     <div className="flex flex-col items-center gap-6">
       {/* Draggable Piece Palette - Top (White pieces) */}
       <div className="flex gap-2 flex-wrap justify-center bg-white rounded-lg shadow p-4 w-full">
-        <p className="w-full text-center text-sm font-semibold text-slate-700 mb-2">Drag pieces below onto board</p>
+        <p className="w-full text-center text-sm font-semibold text-slate-700 mb-2">
+          Drag pieces below onto board
+        </p>
         {['wP', 'wN', 'wB', 'wR', 'wQ', 'wK'].map((type) => (
           <div
             key={type}
@@ -247,7 +248,8 @@ export function CustomBoard({ fen, onBoardChange, orientation, suggestedMove }: 
           FILES.map((file, fileIdx) => {
             const square = file + rank;
             const isLight = isLightSquare(fileIdx, rankIdx);
-            const isSuggested = suggestedMove && (suggestedMove.from === square || suggestedMove.to === square);
+            const isSuggested =
+              suggestedMove && (suggestedMove.from === square || suggestedMove.to === square);
             const isSuggestedArrow = suggestedMove && suggestedMove.from === square;
 
             return (

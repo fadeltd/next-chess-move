@@ -85,7 +85,6 @@ export function useStockfish() {
 
               // Handle no move (checkmate, stalemate, or draw)
               if (moveStr === '(none)') {
-                console.log('Stockfish: no legal moves (checkmate/stalemate)');
                 bestMovePromiseRef.current.resolve({
                   from: '',
                   to: '',
@@ -106,8 +105,6 @@ export function useStockfish() {
               const promotion = moveStr.length > 4 ? moveStr[4] : undefined;
               const text = `${from.toUpperCase()} → ${to.toUpperCase()}`;
 
-              console.log('Stockfish returned move:', from + to, '→', text);
-
               bestMovePromiseRef.current.resolve({
                 from,
                 to,
@@ -127,7 +124,7 @@ export function useStockfish() {
 
         workerRef.current.postMessage('uci');
       } catch (error) {
-        console.error('Failed to initialize Stockfish worker:', error);
+        // Silently ignore initialization errors
       }
     };
 
@@ -140,7 +137,10 @@ export function useStockfish() {
     };
   }, []);
 
-  const getBestMove = (fen: string, onStats?: (stats: AnalysisStats) => void): Promise<BestMoveResult> => {
+  const getBestMove = (
+    fen: string,
+    onStats?: (stats: AnalysisStats) => void
+  ): Promise<BestMoveResult> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
         reject(new Error('Stockfish worker not initialized'));

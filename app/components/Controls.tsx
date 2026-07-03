@@ -13,7 +13,16 @@ interface BoardControlsProps {
   fen: string;
 }
 
-export function BoardControls({ onReset, onCaptureAll, onFlip, onUndo, onRedo, canUndo, canRedo, fen }: BoardControlsProps) {
+export function BoardControls({
+  onReset,
+  onCaptureAll,
+  onFlip,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  fen,
+}: BoardControlsProps) {
   const [fenUrl, setFenUrl] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -73,82 +82,81 @@ export function BoardControls({ onReset, onCaptureAll, onFlip, onUndo, onRedo, c
 
       {isExpanded && (
         <>
+          <div className="grid grid-cols-4 gap-1 mb-4">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="px-1 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 disabled:bg-slate-300 transition cursor-pointer"
+              title="Undo move (Cmd+Z)"
+            >
+              ↶
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className="px-1 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 disabled:bg-slate-300 transition cursor-pointer"
+              title="Redo move (Cmd+Shift+Z)"
+            >
+              ↷
+            </button>
+            <button
+              onClick={onCaptureAll}
+              className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition cursor-pointer"
+              title="Remove all pieces except kings"
+            >
+              Clear
+            </button>
+            <button
+              onClick={onFlip}
+              className="px-2 py-1 bg-purple-500 text-white rounded text-xs font-medium hover:bg-purple-600 transition cursor-pointer"
+              title="Flip board (F)"
+            >
+              Flip (F)
+            </button>
+          </div>
 
-      <div className="grid grid-cols-4 gap-1 mb-4">
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          className="px-1 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 disabled:bg-slate-300 transition cursor-pointer"
-          title="Undo move (Cmd+Z)"
-        >
-          ↶
-        </button>
-        <button
-          onClick={onRedo}
-          disabled={!canRedo}
-          className="px-1 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 disabled:bg-slate-300 transition cursor-pointer"
-          title="Redo move (Cmd+Shift+Z)"
-        >
-          ↷
-        </button>
-        <button
-          onClick={onCaptureAll}
-          className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition cursor-pointer"
-          title="Remove all pieces except kings"
-        >
-          Clear
-        </button>
-        <button
-          onClick={onFlip}
-          className="px-2 py-1 bg-purple-500 text-white rounded text-xs font-medium hover:bg-purple-600 transition cursor-pointer"
-          title="Flip board (F)"
-        >
-          Flip (F)
-        </button>
-      </div>
+          <div className="grid grid-cols-1 gap-1 mb-4">
+            <button
+              onClick={onReset}
+              className="px-2 py-1 bg-green-500 text-white rounded text-xs font-medium hover:bg-green-600 transition cursor-pointer"
+              title="Reset board (R)"
+            >
+              Reset (R)
+            </button>
+          </div>
 
-      <div className="grid grid-cols-1 gap-1 mb-4">
-        <button
-          onClick={onReset}
-          className="px-2 py-1 bg-green-500 text-white rounded text-xs font-medium hover:bg-green-600 transition cursor-pointer"
-          title="Reset board (R)"
-        >
-          Reset (R)
-        </button>
-      </div>
+          {/* FEN Display */}
+          <div className="mb-4 p-3 bg-slate-50 rounded border border-slate-200">
+            <p className="text-xs font-semibold text-slate-700 mb-2">FEN:</p>
+            <p className="text-xs text-slate-600 break-all font-mono mb-2">{fen}</p>
+            <button
+              onClick={copyFenText}
+              className="w-full px-3 py-1 bg-slate-300 text-slate-800 rounded font-medium hover:bg-slate-400 transition cursor-pointer text-xs mb-2"
+            >
+              Copy FEN
+            </button>
+          </div>
 
-      {/* FEN Display */}
-      <div className="mb-4 p-3 bg-slate-50 rounded border border-slate-200">
-        <p className="text-xs font-semibold text-slate-700 mb-2">FEN:</p>
-        <p className="text-xs text-slate-600 break-all font-mono mb-2">{fen}</p>
-        <button
-          onClick={copyFenText}
-          className="w-full px-3 py-1 bg-slate-300 text-slate-800 rounded font-medium hover:bg-slate-400 transition cursor-pointer text-xs mb-2"
-        >
-          Copy FEN
-        </button>
-      </div>
-
-      {/* FEN URL */}
-      {fenUrl && (
-        <div className="p-3 bg-slate-50 rounded border border-slate-200 mb-4">
-          <p className="text-xs font-semibold text-slate-700 mb-2">Share Link:</p>
-          <a
-            href={fenUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-800 break-all font-mono mb-2 block"
-          >
-            {fenUrl.length > 80 ? fenUrl.substring(0, 80) + '...' : fenUrl}
-          </a>
-          <button
-            onClick={copyFen}
-            className="w-full px-3 py-1 bg-blue-500 text-white rounded font-medium hover:bg-blue-600 transition cursor-pointer text-xs"
-          >
-            Copy Link
-          </button>
-        </div>
-      )}
+          {/* FEN URL */}
+          {fenUrl && (
+            <div className="p-3 bg-slate-50 rounded border border-slate-200 mb-4">
+              <p className="text-xs font-semibold text-slate-700 mb-2">Share Link:</p>
+              <a
+                href={fenUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 break-all font-mono mb-2 block"
+              >
+                {fenUrl.length > 80 ? fenUrl.substring(0, 80) + '...' : fenUrl}
+              </a>
+              <button
+                onClick={copyFen}
+                className="w-full px-3 py-1 bg-blue-500 text-white rounded font-medium hover:bg-blue-600 transition cursor-pointer text-xs"
+              >
+                Copy Link
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -166,8 +174,23 @@ interface AnalysisControlsProps {
   suggestedTo?: string | null;
   onApplyMove?: () => void;
   stockfishReady: boolean;
-  analysisStats?: { depth: number; nps: number; time: number; score: number; isMate?: boolean } | null;
-  lastMove?: { from: string; to: string; text: string; depth?: number; nps?: number; time?: number; score?: number; isMate?: boolean } | null;
+  analysisStats?: {
+    depth: number;
+    nps: number;
+    time: number;
+    score: number;
+    isMate?: boolean;
+  } | null;
+  lastMove?: {
+    from: string;
+    to: string;
+    text: string;
+    depth?: number;
+    nps?: number;
+    time?: number;
+    score?: number;
+    isMate?: boolean;
+  } | null;
   isCheckmate?: boolean;
   castlingRights?: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean };
   onCastlingChange?: (rights: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean }) => void;
@@ -234,7 +257,11 @@ export function AnalysisControls({
                   ? 'bg-white text-slate-900 border border-slate-900 hover:bg-slate-50'
                   : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
               }`}
-              title={castlingRights.wK ? 'White kingside castling available' : 'White kingside castling unavailable (king or rook moved)'}
+              title={
+                castlingRights.wK
+                  ? 'White kingside castling available'
+                  : 'White kingside castling unavailable (king or rook moved)'
+              }
             >
               ♔ Kingside
             </button>
@@ -246,7 +273,11 @@ export function AnalysisControls({
                   ? 'bg-white text-slate-900 border border-slate-900 hover:bg-slate-50'
                   : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
               }`}
-              title={castlingRights.wQ ? 'White queenside castling available' : 'White queenside castling unavailable (king or rook moved)'}
+              title={
+                castlingRights.wQ
+                  ? 'White queenside castling available'
+                  : 'White queenside castling unavailable (king or rook moved)'
+              }
             >
               ♔ Queenside
             </button>
@@ -260,7 +291,11 @@ export function AnalysisControls({
                   ? 'bg-slate-800 text-white border border-slate-900 hover:bg-slate-700'
                   : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
               }`}
-              title={castlingRights.bK ? 'Black kingside castling available' : 'Black kingside castling unavailable (king or rook moved)'}
+              title={
+                castlingRights.bK
+                  ? 'Black kingside castling available'
+                  : 'Black kingside castling unavailable (king or rook moved)'
+              }
             >
               ♚ Kingside
             </button>
@@ -272,7 +307,11 @@ export function AnalysisControls({
                   ? 'bg-slate-800 text-white border border-slate-900 hover:bg-slate-700'
                   : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
               }`}
-              title={castlingRights.bQ ? 'Black queenside castling available' : 'Black queenside castling unavailable (king or rook moved)'}
+              title={
+                castlingRights.bQ
+                  ? 'Black queenside castling available'
+                  : 'Black queenside castling unavailable (king or rook moved)'
+              }
             >
               ♚ Queenside
             </button>
@@ -343,11 +382,7 @@ export function AnalysisControls({
         </button>
       )}
 
-      {!stockfishReady && (
-        <div className="text-center text-xs text-slate-500">
-          Loading...
-        </div>
-      )}
+      {!stockfishReady && <div className="text-center text-xs text-slate-500">Loading...</div>}
     </div>
   );
 }

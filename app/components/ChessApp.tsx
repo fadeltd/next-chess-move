@@ -9,6 +9,17 @@ import { useStockfish } from '@/lib/useStockfish';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+interface ChessMove {
+  from: string;
+  to: string;
+  piece: string;
+  color: 'w' | 'b';
+  flags: string;
+  san: string;
+  captured?: string;
+  promotion?: string;
+}
+
 export function ChessApp() {
   const [currentFen, setCurrentFen] = useState<string>(START_FEN);
   const [fenHistory, setFenHistory] = useState<string[]>([START_FEN]);
@@ -22,8 +33,23 @@ export function ChessApp() {
   const [suggestedArrows, setSuggestedArrows] = useState<Array<[string, string, string]>>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [castlingRights, setCastlingRights] = useState({ wK: true, wQ: true, bK: true, bQ: true });
-  const [analysisStats, setAnalysisStats] = useState<{ depth: number; nps: number; time: number; score: number; isMate?: boolean } | null>(null);
-  const [lastMove, setLastMove] = useState<{ from: string; to: string; text: string; depth?: number; nps?: number; time?: number; score?: number; isMate?: boolean } | null>(null);
+  const [analysisStats, setAnalysisStats] = useState<{
+    depth: number;
+    nps: number;
+    time: number;
+    score: number;
+    isMate?: boolean;
+  } | null>(null);
+  const [lastMove, setLastMove] = useState<{
+    from: string;
+    to: string;
+    text: string;
+    depth?: number;
+    nps?: number;
+    time?: number;
+    score?: number;
+    isMate?: boolean;
+  } | null>(null);
   const [avoidedDrawCount, setAvoidedDrawCount] = useState(0);
 
   const { isReady: stockfishReady, getBestMove } = useStockfish();
@@ -81,7 +107,10 @@ export function ChessApp() {
     }
 
     // Build query string
-    const query = urlParts.length > 0 ? urlParts.join('&') + `&fen=${encodeURIComponent(currentFen)}` : `fen=${encodeURIComponent(currentFen)}`;
+    const query =
+      urlParts.length > 0
+        ? urlParts.join('&') + `&fen=${encodeURIComponent(currentFen)}`
+        : `fen=${encodeURIComponent(currentFen)}`;
     const newUrl = `${window.location.origin}${window.location.pathname}?${query}`;
     window.history.replaceState({ fen: currentFen, orientation, playerToMove }, '', newUrl);
   }, [currentFen, orientation, playerToMove]);
@@ -154,7 +183,12 @@ export function ChessApp() {
     // This is trickier since there are 2 rooks - we check if any rook left a1
     const prevFenRanks = prevFenRef.current.split(' ')[0].split('/');
     const currFenRanks = currentFen.split(' ')[0].split('/');
-    if (prevFenRanks[7] && currFenRanks[7] && prevFenRanks[7][0] === 'R' && currFenRanks[7][0] !== 'R') {
+    if (
+      prevFenRanks[7] &&
+      currFenRanks[7] &&
+      prevFenRanks[7][0] === 'R' &&
+      currFenRanks[7][0] !== 'R'
+    ) {
       setCastlingRights((prev) => ({ ...prev, wQ: false }));
     }
 
@@ -166,7 +200,12 @@ export function ChessApp() {
     }
 
     // Check if black a-rook moved (queenside)
-    if (prevFenRanks[0] && currFenRanks[0] && prevFenRanks[0][0] === 'r' && currFenRanks[0][0] !== 'r') {
+    if (
+      prevFenRanks[0] &&
+      currFenRanks[0] &&
+      prevFenRanks[0][0] === 'r' &&
+      currFenRanks[0][0] !== 'r'
+    ) {
       setCastlingRights((prev) => ({ ...prev, bQ: false }));
     }
 
@@ -197,7 +236,18 @@ export function ChessApp() {
   const wouldCauseRepetition = (fromSquare: string, toSquare: string): boolean => {
     const tempGame = new Chess();
     const parts = currentFen.split(' ');
-    const fenToApply = parts[0] + ' ' + playerToMove + ' ' + (parts[2] || 'KQkq') + ' ' + (parts[3] || '-') + ' ' + (parts[4] || '0') + ' ' + (parts[5] || '1');
+    const fenToApply =
+      parts[0] +
+      ' ' +
+      playerToMove +
+      ' ' +
+      (parts[2] || 'KQkq') +
+      ' ' +
+      (parts[3] || '-') +
+      ' ' +
+      (parts[4] || '0') +
+      ' ' +
+      (parts[5] || '1');
     tempGame.load(fenToApply, { skipValidation: true });
 
     const move = tempGame.move({
@@ -211,7 +261,7 @@ export function ChessApp() {
     const resultingFen = tempGame.fen().split(' ')[0]; // Just the board position, ignore move counters
 
     // Count occurrences of this position in history
-    const occurrences = fenHistory.filter(fen => fen.split(' ')[0] === resultingFen).length;
+    const occurrences = fenHistory.filter((fen) => fen.split(' ')[0] === resultingFen).length;
 
     // If this position already appeared twice, applying this move would cause threefold repetition
     return occurrences >= 2;
@@ -375,11 +425,18 @@ export function ChessApp() {
     try {
       // When analyzing, construct FEN with correct player to move
       const parts = currentFen.split(' ');
-      let fenForAnalysis = parts[0] + ' ' + playerToMove + ' ' + (parts[2] || 'KQkq') + ' ' + (parts[3] || '-') + ' ' + (parts[4] || '0') + ' ' + (parts[5] || '1');
-
-      console.log('Orientation:', orientation);
-      console.log('PlayerToMove:', playerToMove);
-      console.log('FEN for analysis:', fenForAnalysis);
+      let fenForAnalysis =
+        parts[0] +
+        ' ' +
+        playerToMove +
+        ' ' +
+        (parts[2] || 'KQkq') +
+        ' ' +
+        (parts[3] || '-') +
+        ' ' +
+        (parts[4] || '0') +
+        ' ' +
+        (parts[5] || '1');
 
       const result = await getBestMove(fenForAnalysis, (stats) => {
         setAnalysisStats(stats);
@@ -393,13 +450,12 @@ export function ChessApp() {
 
       // Check if this move would cause repetition (draw avoidance)
       if (wouldCauseRepetition(result.from, result.to)) {
-        console.log('Suggested move causes repetition, finding alternative...');
-        setAvoidedDrawCount(prev => prev + 1);
+        setAvoidedDrawCount((prev) => prev + 1);
 
         // Find an alternative move that doesn't cause repetition
         const tempGame = new Chess();
         tempGame.load(fenForAnalysis, { skipValidation: true });
-        const legalMoves = tempGame.moves({ verbose: true });
+        const legalMoves: ChessMove[] = tempGame.moves({ verbose: true }) as ChessMove[];
 
         // Prioritize captures and checks, avoid repetitions
         const goodMoves = legalMoves
@@ -410,14 +466,12 @@ export function ChessApp() {
             const bCheck = b.flags.includes('c') ? -1 : 0;
             return aCaptures + aCheck - bCaptures - bCheck;
           })
-          .filter(move => !wouldCauseRepetition(move.from, move.to));
+          .filter((move) => !wouldCauseRepetition(move.from, move.to));
 
         if (goodMoves.length === 0) {
           // No non-drawing moves available, show the original
-          console.log('No alternative moves available, using original despite repetition');
         } else {
           const altMove = goodMoves[0];
-          console.log(`Alternative move found: ${altMove.san} (avoided repetition)`);
 
           const sanLower = altMove.san.toLowerCase();
           setSuggestedMove(sanLower);
@@ -443,11 +497,11 @@ export function ChessApp() {
       if (result.from && result.to) {
         const moveGame = new Chess();
         moveGame.load(fenForAnalysis, { skipValidation: true });
-        const moveObj = moveGame.move({
+        const moveObj: ChessMove | null = moveGame.move({
           from: result.from,
           to: result.to,
           promotion: result.promotion || 'q',
-        });
+        }) as ChessMove | null;
         if (moveObj) {
           sanLower = moveObj.san.toLowerCase();
         }
@@ -469,7 +523,7 @@ export function ChessApp() {
       // Store last move with SAN notation (lowercase for display)
       setLastMove({ ...result, text: sanLower });
     } catch (error) {
-      console.error('Failed to get best move:', error);
+      // Silently handle calculation errors
     } finally {
       setIsThinking(false);
     }
@@ -483,15 +537,23 @@ export function ChessApp() {
 
       // Use the same FEN construction as handleCalculateMove to ensure player to move is correct
       const parts = currentFen.split(' ');
-      const fenToApply = parts[0] + ' ' + playerToMove + ' ' + (parts[2] || 'KQkq') + ' ' + (parts[3] || '-') + ' ' + (parts[4] || '0') + ' ' + (parts[5] || '1');
+      const fenToApply =
+        parts[0] +
+        ' ' +
+        playerToMove +
+        ' ' +
+        (parts[2] || 'KQkq') +
+        ' ' +
+        (parts[3] || '-') +
+        ' ' +
+        (parts[4] || '0') +
+        ' ' +
+        (parts[5] || '1');
 
       tempGame.load(fenToApply, { skipValidation: true });
 
-      console.log('FEN to apply:', fenToApply);
-      console.log('Trying to move:', suggestedFrom, '→', suggestedTo);
-
       // Try without promotion first (for non-pawn moves)
-      let move = tempGame.move({
+      let move: ChessMove | null = tempGame.move({
         from: suggestedFrom,
         to: suggestedTo,
       });
@@ -506,8 +568,6 @@ export function ChessApp() {
       }
 
       if (!move) {
-        console.error(`Move ${suggestedFrom}→${suggestedTo} is not valid in current position.`);
-        console.log('Full board state:', tempGame.ascii());
         return;
       }
 
@@ -575,7 +635,7 @@ export function ChessApp() {
       setLastMove(null);
       setAnalysisStats(null);
     } catch (error) {
-      console.error('Failed to apply move:', error);
+      // Silently handle move application errors
     }
   };
 
@@ -635,7 +695,21 @@ export function ChessApp() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [canCalculate, stockfishReady, isThinking, handleCalculateMove, handleApplyMove, handleFlip, handleReset, handleCaptureAll, handleUndo, handleRedo, suggestedMove, suggestedFrom, suggestedTo]);
+  }, [
+    canCalculate,
+    stockfishReady,
+    isThinking,
+    handleCalculateMove,
+    handleApplyMove,
+    handleFlip,
+    handleReset,
+    handleCaptureAll,
+    handleUndo,
+    handleRedo,
+    suggestedMove,
+    suggestedFrom,
+    suggestedTo,
+  ]);
 
   return (
     <div className="flex flex-col w-screen h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -681,12 +755,10 @@ export function ChessApp() {
 
         {/* Controls Sidebar */}
         <div className="w-full xl:w-64 flex-1 xl:flex-none flex flex-col gap-2 overflow-y-auto xl:overflow-y-auto">
-
           {/* Analysis Controls */}
           <AnalysisControls
             playerToMove={playerToMove}
             onPlayerChange={(player) => {
-              console.log('Player changed to:', player);
               setPlayerToMove(player);
               setSuggestedMove(null);
               setSuggestedFrom(null);

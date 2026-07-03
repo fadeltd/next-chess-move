@@ -24,11 +24,6 @@ const PIECE_ORDER = {
   black: ['p', 'n', 'b', 'r', 'q', 'k'],
 };
 
-const PIECE_LABELS: Record<string, string> = {
-  'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
-  'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
-};
-
 export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: CanvasBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [pieces, setPieces] = useState<BoardPiece[]>([]);
@@ -94,7 +89,7 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
         }
         // Desktop Landscape (1280px+)
         else {
-          maxSize = 520;  // Slightly larger on landscape
+          maxSize = 520; // Slightly larger on landscape
           heightMargin = 200;
           widthMargin = 40;
         }
@@ -126,7 +121,6 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
 
     return { x: file * squareSize, y: rank * squareSize };
   };
-
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     if (!boardRef.current) return null;
@@ -249,7 +243,6 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
     setDraggingPiece(null);
     setDragStartSquare(null);
   };
-
 
   const piecesToFen = (pcs: BoardPiece[]): string => {
     let fen = '';
