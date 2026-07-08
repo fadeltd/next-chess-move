@@ -736,12 +736,13 @@ export function ChessApp() {
               onBoardChange={(newFen) => {
                 setCurrentFen(newFen);
                 setFenHistory([...fenHistory, newFen]);
-                // Clear suggested move when user manually moves a piece
+                // Clear suggested move and analysis when user manually moves a piece
                 setSuggestedMove(null);
                 setSuggestedFrom(null);
                 setSuggestedTo(null);
                 setSuggestedArrows([]);
                 setLastMove(null);
+                setAnalysisStats(null);
               }}
               orientation={orientation}
               suggestedMove={
