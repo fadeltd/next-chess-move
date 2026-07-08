@@ -19,10 +19,13 @@ interface CanvasBoardProps {
   suggestedMove?: { from: string; to: string } | null;
 }
 
+// Kings are excluded - each side always has exactly one and it can't be removed
 const PIECE_ORDER = {
-  white: ['P', 'N', 'B', 'R', 'Q', 'K'],
-  black: ['p', 'n', 'b', 'r', 'q', 'k'],
+  white: ['P', 'N', 'B', 'R', 'Q'],
+  black: ['p', 'n', 'b', 'r', 'q'],
 };
+
+const isKing = (type: string) => type === 'K' || type === 'k';
 
 export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: CanvasBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -31,6 +34,10 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [boardSize, setBoardSize] = useState(640);
   const [dragStartSquare, setDragStartSquare] = useState<string | null>(null);
+  // Palette piece being dragged, tracked in viewport coordinates for the floating ghost
+  const [paletteDrag, setPaletteDrag] = useState<{ type: string; x: number; y: number } | null>(
+    null
+  );
 
   const squareSize = boardSize / 8;
 
@@ -122,59 +129,21 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
     return { x: file * squareSize, y: rank * squareSize };
   };
 
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+  const getBoardCoords = (e: React.PointerEvent): { x: number; y: number } | null => {
     if (!boardRef.current) return null;
     const rect = boardRef.current.getBoundingClientRect();
-
-    if ('touches' in e || 'changedTouches' in e) {
-      const touchList = 'touches' in e ? e.touches : (e as any).changedTouches;
-      if (!touchList || touchList.length === 0) return null;
-      const touch = touchList[0];
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top,
-      };
-    } else {
-      const mouseEvent = e as React.MouseEvent;
-      return {
-        x: mouseEvent.clientX - rect.left,
-        y: mouseEvent.clientY - rect.top,
-      };
-    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
   };
 
-  const handleMouseDown = (piece: BoardPiece, e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    const coords = getCoordinates(e);
-    if (!coords) return;
+  // Convert board-relative coordinates to a square name, or null if outside the board
+  const coordsToSquare = (x: number, y: number): string | null => {
+    let file = Math.floor(x / squareSize);
+    let rank = Math.floor(y / squareSize);
 
-    setDraggingPiece(piece);
-    setDragStartSquare(piece.square);
-    setDragOffset({
-      x: coords.x,
-      y: coords.y,
-    });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!draggingPiece || !boardRef.current) return;
-    const coords = getCoordinates(e);
-    if (!coords) return;
-
-    setDragOffset({
-      x: coords.x,
-      y: coords.y,
-    });
-  };
-
-  const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!draggingPiece || !boardRef.current) return;
-    const coords = getCoordinates(e);
-    if (!coords) return;
-
-    // Find which square the mouse is over
-    let file = Math.round(coords.x / squareSize - 0.5);
-    let rank = Math.round(coords.y / squareSize - 0.5);
+    if (file < 0 || file > 7 || rank < 0 || rank > 7) return null;
 
     // Flip coordinates if board is flipped (black orientation)
     if (orientation === 'black') {
@@ -182,29 +151,63 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
       rank = 7 - rank;
     }
 
-    // Check if piece was dragged outside the board
-    if (file < 0 || file > 7 || rank < 0 || rank > 7) {
-      // Prevent removing kings from the board
-      if (draggingPiece.type === 'K' || draggingPiece.type === 'k') {
-        // Snap king back to original square - do nothing
-      } else {
-        // Remove the piece by filtering it out
+    return FILES[file] + RANKS[rank];
+  };
+
+  const handlePiecePointerDown = (piece: BoardPiece, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const coords = getBoardCoords(e);
+    if (!coords) return;
+
+    setDraggingPiece(piece);
+    setDragStartSquare(piece.square);
+    setDragOffset(coords);
+  };
+
+  const handlePiecePointerMove = (e: React.PointerEvent) => {
+    if (!draggingPiece) return;
+    const coords = getBoardCoords(e);
+    if (!coords) return;
+    setDragOffset(coords);
+  };
+
+  const handlePiecePointerUp = (e: React.PointerEvent) => {
+    if (!draggingPiece) return;
+    const coords = getBoardCoords(e);
+    if (!coords) {
+      setDraggingPiece(null);
+      setDragStartSquare(null);
+      return;
+    }
+
+    const newSquare = coordsToSquare(coords.x, coords.y);
+
+    if (!newSquare) {
+      // Piece released outside the board - remove it (kings snap back instead)
+      if (!isKing(draggingPiece.type)) {
         const updatedPieces = pieces.filter((p) => p.id !== draggingPiece.id);
         setPieces(updatedPieces);
-        const newFen = piecesToFen(updatedPieces);
-        onBoardChange(newFen);
+        onBoardChange(piecesToFen(updatedPieces));
       }
-    } else {
-      // Piece dropped on board - place it on the square
-      const newSquare = FILES[file] + RANKS[rank];
+    } else if (newSquare !== dragStartSquare) {
+      const occupant = pieces.find((p) => p.square === newSquare);
+
+      // Kings can't be captured/removed - snap back if dropping onto one
+      if (occupant && isKing(occupant.type)) {
+        setDraggingPiece(null);
+        setDragStartSquare(null);
+        return;
+      }
+
       let updatedPieces = pieces
         .filter((p) => p.id !== draggingPiece.id && p.square !== newSquare)
         .concat([{ ...draggingPiece, square: newSquare }]);
 
       // Handle castling - if king moved 2 squares horizontally, also move the rook
-      if ((draggingPiece.type === 'K' || draggingPiece.type === 'k') && draggingPiece.square) {
+      if (isKing(draggingPiece.type) && draggingPiece.square) {
         const oldFile = FILES.indexOf(draggingPiece.square[0]);
-        const newFile = file;
+        const newFile = FILES.indexOf(newSquare[0]);
         const isCastling = Math.abs(newFile - oldFile) === 2;
 
         if (isCastling) {
@@ -234,14 +237,51 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
       }
 
       setPieces(updatedPieces);
-
-      // Update FEN with the new pieces
-      const newFen = piecesToFen(updatedPieces);
-      onBoardChange(newFen);
+      onBoardChange(piecesToFen(updatedPieces));
     }
+    // Dropped back on the starting square: no position change, just end the drag
 
     setDraggingPiece(null);
     setDragStartSquare(null);
+  };
+
+  const handlePiecePointerCancel = () => {
+    setDraggingPiece(null);
+    setDragStartSquare(null);
+  };
+
+  const handlePalettePointerDown = (type: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setPaletteDrag({ type, x: e.clientX, y: e.clientY });
+  };
+
+  const handlePalettePointerMove = (e: React.PointerEvent) => {
+    if (!paletteDrag) return;
+    setPaletteDrag({ ...paletteDrag, x: e.clientX, y: e.clientY });
+  };
+
+  const handlePalettePointerUp = (e: React.PointerEvent) => {
+    if (!paletteDrag) return;
+    setPaletteDrag(null);
+
+    if (!boardRef.current) return;
+    const rect = boardRef.current.getBoundingClientRect();
+    const square = coordsToSquare(e.clientX - rect.left, e.clientY - rect.top);
+    if (!square) return; // Released outside the board - don't add
+
+    // Don't replace a king - it can't be removed
+    const occupant = pieces.find((p) => p.square === square);
+    if (occupant && isKing(occupant.type)) return;
+
+    const newPiece: BoardPiece = { id: Math.random().toString(), type: paletteDrag.type, square };
+    const newPcs = pieces.filter((p) => p.square !== square).concat([newPiece]);
+    setPieces(newPcs);
+    onBoardChange(piecesToFen(newPcs));
+  };
+
+  const handlePalettePointerCancel = () => {
+    setPaletteDrag(null);
   };
 
   const piecesToFen = (pcs: BoardPiece[]): string => {
@@ -268,98 +308,37 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
   const isLightSquare = (file: number, rank: number) => (file + rank) % 2 === 0;
 
   const whiteAtBottom = orientation === 'white';
-  const showWhitePaletteAtTop = !whiteAtBottom;
-  const showWhitePaletteAtBottom = whiteAtBottom;
-  const showBlackPaletteAtTop = whiteAtBottom;
-  const showBlackPaletteAtBottom = !whiteAtBottom;
 
-  const addPieceFromPalette = (type: string, e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!boardRef.current) return;
-
-    const rect = boardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Find which square the mouse is over
-    let file = Math.round(x / squareSize - 0.5);
-    let rank = Math.round(y / squareSize - 0.5);
-
-    // Flip coordinates if board is flipped (black orientation)
-    if (orientation === 'black') {
-      file = 7 - file;
-      rank = 7 - rank;
-    }
-
-    // Clamp to board boundaries
-    const clampedFile = Math.max(0, Math.min(7, file));
-    const clampedRank = Math.max(0, Math.min(7, rank));
-
-    const square = FILES[clampedFile] + RANKS[clampedRank];
-
-    if (square) {
-      const newId = Math.random().toString();
-      const newPiece: BoardPiece = { id: newId, type, square };
-      const newPcs = [...pieces, newPiece];
-      setPieces(newPcs);
-      onBoardChange(piecesToFen(newPcs));
-    }
-  };
+  const renderPalette = (types: string[]) => (
+    <div className="flex gap-1 md:gap-2 justify-center py-1 flex-shrink-0">
+      {types.map((type) => (
+        <div
+          key={type}
+          onPointerDown={(e) => handlePalettePointerDown(type, e)}
+          onPointerMove={handlePalettePointerMove}
+          onPointerUp={handlePalettePointerUp}
+          onPointerCancel={handlePalettePointerCancel}
+          className="cursor-move hover:scale-110 transition select-none"
+          style={{
+            width: `${squareSize * 0.5}px`,
+            height: `${squareSize * 0.5}px`,
+            touchAction: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+            WebkitTouchCallout: 'none',
+          }}
+          title={type}
+        >
+          <Piece piece={type} />
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
-      {/* Top palette - White pieces if board flipped */}
-      {showWhitePaletteAtTop && (
-        <div className="flex gap-1 md:gap-2 justify-center py-1 flex-shrink-0 overflow-x-auto">
-          {PIECE_ORDER.white.map((type) => (
-            <div
-              key={type}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer!.effectAllowed = 'copy';
-                e.dataTransfer!.setData('piece', type);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => addPieceFromPalette(type, e)}
-              className="cursor-move hover:scale-110 transition select-none"
-              style={{
-                width: `${squareSize * 0.5}px`,
-                height: `${squareSize * 0.5}px`,
-              }}
-              title={type}
-            >
-              <Piece piece={type} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Top palette - Black pieces if board normal */}
-      {showBlackPaletteAtTop && (
-        <div className="flex gap-1 md:gap-2 justify-center py-1 flex-shrink-0 overflow-x-auto">
-          {PIECE_ORDER.black.map((type) => (
-            <div
-              key={type}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer!.effectAllowed = 'copy';
-                e.dataTransfer!.setData('piece', type);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => addPieceFromPalette(type, e)}
-              className="cursor-move hover:scale-110 transition select-none"
-              style={{
-                width: `${squareSize * 0.5}px`,
-                height: `${squareSize * 0.5}px`,
-              }}
-              title={type}
-            >
-              <Piece piece={type} />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Top palette - opponent's pieces */}
+      {renderPalette(whiteAtBottom ? PIECE_ORDER.black : PIECE_ORDER.white)}
 
       {/* Board Container */}
       <div className="flex justify-center flex-1 w-full">
@@ -369,21 +348,6 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
           style={{
             width: `${boardSize}px`,
             height: `${boardSize}px`,
-          }}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchMove={handleMouseMove}
-          onTouchEnd={handleMouseUp}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-          }}
-          onDrop={(e) => {
-            const type = e.dataTransfer.getData('piece');
-            if (type) {
-              addPieceFromPalette(type, e);
-            }
           }}
         >
           {/* Board squares */}
@@ -478,9 +442,14 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
                   opacity: isDragging ? 0.8 : 1,
                   transform: transform,
                   touchAction: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  WebkitTouchCallout: 'none',
                 }}
-                onMouseDown={(e) => handleMouseDown(piece, e)}
-                onTouchStart={(e) => handleMouseDown(piece, e)}
+                onPointerDown={(e) => handlePiecePointerDown(piece, e)}
+                onPointerMove={handlePiecePointerMove}
+                onPointerUp={handlePiecePointerUp}
+                onPointerCancel={handlePiecePointerCancel}
               >
                 <div style={{ width: `${squareSize * 0.75}px`, height: `${squareSize * 0.75}px` }}>
                   <Piece piece={piece.type} />
@@ -491,55 +460,24 @@ export function CanvasBoard({ fen, onBoardChange, orientation, suggestedMove }: 
         </div>
       </div>
 
-      {/* Bottom palette - Black pieces if board flipped */}
-      {showBlackPaletteAtBottom && (
-        <div className="flex gap-1 md:gap-2 justify-center py-1 flex-shrink-0">
-          {PIECE_ORDER.black.map((type) => (
-            <div
-              key={type}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer!.effectAllowed = 'copy';
-                e.dataTransfer!.setData('piece', type);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => addPieceFromPalette(type, e)}
-              className="cursor-move hover:scale-110 transition select-none"
-              style={{
-                width: `${squareSize * 0.5}px`,
-                height: `${squareSize * 0.5}px`,
-              }}
-              title={type}
-            >
-              <Piece piece={type} />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Bottom palette - player's pieces */}
+      {renderPalette(whiteAtBottom ? PIECE_ORDER.white : PIECE_ORDER.black)}
 
-      {/* Bottom palette - White pieces if board normal */}
-      {showWhitePaletteAtBottom && (
-        <div className="flex gap-1 md:gap-2 justify-center py-1 flex-shrink-0">
-          {PIECE_ORDER.white.map((type) => (
-            <div
-              key={type}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer!.effectAllowed = 'copy';
-                e.dataTransfer!.setData('piece', type);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => addPieceFromPalette(type, e)}
-              className="cursor-move hover:scale-110 transition select-none"
-              style={{
-                width: `${squareSize * 0.5}px`,
-                height: `${squareSize * 0.5}px`,
-              }}
-              title={type}
-            >
-              <Piece piece={type} />
-            </div>
-          ))}
+      {/* Floating ghost piece while dragging from a palette */}
+      {paletteDrag && (
+        <div
+          className="pointer-events-none"
+          style={{
+            position: 'fixed',
+            left: `${paletteDrag.x - squareSize * 0.375}px`,
+            top: `${paletteDrag.y - squareSize * 0.375}px`,
+            width: `${squareSize * 0.75}px`,
+            height: `${squareSize * 0.75}px`,
+            zIndex: 100,
+            opacity: 0.8,
+          }}
+        >
+          <Piece piece={paletteDrag.type} />
         </div>
       )}
     </div>
